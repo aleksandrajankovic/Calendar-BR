@@ -1,0 +1,82 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+enum PromoCategory {
+  SPORT
+  CASINO
+  MISSIONS
+  ALL
+}
+model CalendarSettings {
+  id         Int      @id
+  bgImageUrl String? 
+  updatedAt  DateTime @updatedAt
+}
+model WeeklyPromotion {
+  id           Int      @id @default(autoincrement())
+  weekday      Int
+  title        String
+  link         String
+  button       String
+  active       Boolean  @default(true)
+  icon         String?
+  buttonColor  String   @default("green")
+  rich         Json?
+  richHtml     String?
+
+  translations Json?
+category     PromoCategory @default(ALL)
+  @@unique([weekday])
+}
+
+model SpecialPromotion {
+  id           Int      @id @default(autoincrement())
+  year         Int
+  month        Int
+  day          Int
+  title        String
+  link         String
+  button       String
+  active       Boolean  @default(true)
+  icon         String?
+  buttonColor  String   @default("green")
+  rich         Json?
+  richHtml     String?
+
+  translations Json?
+  category     PromoCategory @default(ALL)
+}
+
+model WeeklyPlan {
+  id          Int      @id @default(autoincrement())
+  year        Int
+  month       Int
+  weekday     Int
+  title       String
+  link        String
+  button      String
+  active      Boolean  @default(true)
+  icon        String?
+  rich        Json?
+  richHtml    String?
+  buttonColor String   @default("green")
+
+  translations Json?
+category     PromoCategory @default(ALL)
+  @@unique([year, month, weekday])
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  isSuper      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
