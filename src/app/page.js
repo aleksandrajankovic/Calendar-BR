@@ -80,7 +80,7 @@ function normalizeSpecials(rows = [], lang) {
 }
 
 function getMonthLabel(year, month, lang) {
-  const locale = lang === "pt" ? "pt-PT" : "en-US";
+  const locale = lang === "pt" ? "pt-BR" : "en-US";
   const raw = new Date(year, month, 1).toLocaleString(locale, {
     month: "long",
   });
