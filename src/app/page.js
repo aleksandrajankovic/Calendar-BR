@@ -5,10 +5,13 @@ import prisma from "@/lib/db";
 import { cookies } from "next/headers";
 import LangSwitcher from "@/components/LangSwitcher";
 import SnowOverlay from "@/components/SnowOverlay";
+import { unstable_cache } from "next/cache";
 
-// -------------------------
+export const dynamic = "force-dynamic"; // uvek dynamic render, ali i dalje imamo DB cache
+
+// ----------------------------------------------------------------------
 // HELPERS
-// -------------------------
+// ----------------------------------------------------------------------
 function prevYM(y, m) {
   return m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 };
 }
@@ -87,12 +90,38 @@ function getMonthLabel(year, month, lang) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-// -------------------------
+// ----------------------------------------------------------------------
+// CACHED DATA FETCHER – Neon upite keširamo 5 minuta po (year, month)
+// ----------------------------------------------------------------------
+const getCalendarDataCached = unstable_cache(
+  async (year, month) => {
+    console.log("DB QUERY EXECUTED (CACHE MISS):", year, month);
+
+    return Promise.all([
+      prisma.weeklyPromotion.findMany({ orderBy: { weekday: "asc" } }),
+      prisma.weeklyPlan.findMany({
+        where: { year, month },
+        orderBy: { weekday: "asc" },
+      }),
+      prisma.specialPromotion.findMany({
+        where: { year, month },
+        orderBy: [{ day: "asc" }],
+      }),
+      prisma.calendarSettings.findFirst(),
+    ]);
+  },
+  ["calendar-data"], // osnovni ključ; year/month ulaze kao argumenti
+  { revalidate: 300 } // 300 sekundi = 5 minuta
+);
+
+// ----------------------------------------------------------------------
 // PAGE COMPONENT
-// -------------------------
+// ----------------------------------------------------------------------
 export default async function Home({ searchParams }) {
+  // u Next 16 searchParams je Promise → moramo await
   const sp = await searchParams;
 
+  // isto važi i za cookies()
   const cookieStore = await cookies();
   const adminCookie = cookieStore.get("admin_auth");
   const isAdmin = !!adminCookie?.value;
@@ -115,25 +144,14 @@ export default async function Home({ searchParams }) {
       ? reqMonth
       : now.getMonth();
 
-  // Load DB data
+  // koristimo keširani fetcher
   const [weeklyDefaults, weeklyPlanRows, specialRows, calendarSettings] =
-    await Promise.all([
-      prisma.weeklyPromotion.findMany({ orderBy: { weekday: "asc" } }),
-      prisma.weeklyPlan.findMany({
-        where: { year, month },
-        orderBy: { weekday: "asc" },
-      }),
-      prisma.specialPromotion.findMany({
-        where: { year, month },
-        orderBy: [{ day: "asc" }],
-      }),
-      prisma.calendarSettings.findFirst(),
-    ]);
+    await getCalendarDataCached(year, month);
 
   const defaults = normWeeklyRows(weeklyDefaults, lang);
   const planned = normWeeklyRows(weeklyPlanRows, lang);
 
-  const weeklyRaw = Array.from(
+  const weekly = Array.from(
     { length: 7 },
     (_, i) =>
       planned[i] ??
@@ -148,29 +166,23 @@ export default async function Home({ searchParams }) {
         category: "ALL",
       }
   );
-  const weekly = weeklyRaw;
 
   const specials = normalizeSpecials(specialRows, lang);
-
-  // background za kalendar
   const bgImageUrl = calendarSettings?.bgImageUrl || "/img/bg-calendar.png";
 
-  // Pagination for months
   const p = prevYM(year, month);
   const n = nextYM(year, month);
   const monthLabel = getMonthLabel(year, month, lang);
 
   return (
     <>
-      {/* TOP HEADER BAR – crveni, logo levo, lang switcher desno */}
+      {/* HEADER */}
       <header className="w-full bg-[linear-gradient(90deg,#A6080E_0%,#D11101_100%)] px-4 md:px-8 py-2 flex items-center justify-between">
         <img
           src="./img/logo.svg"
           alt="Meridianbet"
           className="h-6 md:h-7 w-auto"
         />
-
-        {/* desna strana: desktop flag dropdown + mobile text switcher */}
         <div className="flex items-center gap-2">
           <LangSwitcher
             year={year}
@@ -181,29 +193,30 @@ export default async function Home({ searchParams }) {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <main
         className="
-          w-full
-          bg-no-repeat bg-cover bg-center
+          w-full bg-no-repeat bg-cover bg-center
           calendar-bg
-          min-h-[100dvh]        
-          overflow-hidden         
-          md:overflow-auto   
+          min-h-[100dvh]
+          overflow-hidden
+          md:overflow-auto
           flex
-          justify-center md:justify-start  
+          justify-center md:justify-start
         "
         style={{ backgroundImage: `url("${bgImageUrl}")` }}
       >
+        {/* Ako hoćeš sneg, samo otkomentariši: */}
         {/* <SnowOverlay /> */}
+
         <div
           className="
             w-full
             max-w-6xl
             px-4 sm:px-6 md:px-10 lg:px-16
-            pt-4 pb-4        
+            pt-4 pb-4
             md:pt-6 md:pb-10
-            mx-auto md:mx-0 md:mr-auto 
+            mx-auto md:mx-0 md:mr-auto
           "
         >
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white md:text-left text-center">
@@ -216,7 +229,7 @@ export default async function Home({ searchParams }) {
             </div>
           )}
 
-          {/* MOBILE PAGINATION – IZNAD kalendara */}
+          {/* MOBILE paginacija */}
           <div className="mt-6 flex items-center justify-center md:hidden">
             <div className="inline-flex items-center gap-4 rounded-full bg-black/40 px-4 py-2 text-white text-sm">
               <a
@@ -241,7 +254,7 @@ export default async function Home({ searchParams }) {
             </div>
           </div>
 
-          {/* kalendar malo odvojen od naslova */}
+          {/* KALENDAR */}
           <div className="mt-6">
             <CalendarGrid
               year={year}
@@ -255,8 +268,8 @@ export default async function Home({ searchParams }) {
 
           <CalendarEnhancer adminPreview={isAdmin} lang={lang} />
 
-          {/* MONTH PAGINATION – odmah ispod kalendara */}
-          <div className="mt-6 md:flex items-center justify-center hidden ">
+          {/* DESKTOP paginacija */}
+          <div className="mt-6 md:flex items-center justify-center hidden">
             <div className="inline-flex items-center gap-4 rounded-full bg-black/40 px-4 py-2 text-white text-sm md:text-base">
               <a
                 href={`/?y=${p.y}&m=${p.m}&lang=${lang}`}
