@@ -1,4 +1,3 @@
-// src/components/admin/AdminHeader.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,8 +6,9 @@ import { useRouter } from "next/navigation";
 export default function AdminHeader() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [isClearing, setIsClearing] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
 
-  // povuci ulogovanog admina
   useEffect(() => {
     async function loadMe() {
       try {
@@ -23,6 +23,11 @@ export default function AdminHeader() {
     loadMe();
   }, []);
 
+  function showToast(message, type = "success") {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
   async function doLogout() {
     try {
       await fetch("/api/auth", { method: "DELETE", cache: "no-store" });
@@ -32,49 +37,74 @@ export default function AdminHeader() {
     }
   }
 
+  async function handleClearCache() {
+    try {
+      setIsClearing(true);
+      const res = await fetch("/api/admin/clear-calendar-cache", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        showToast("Failed to clear cache. Please try again.", "error");
+        return;
+      }
+
+      showToast("Cache cleared successfully. ", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Something went wrong while clearing the cache.", "error");
+    } finally {
+      setIsClearing(false);
+    }
+  }
+
   const displayName = user?.name || user?.email?.split("@")[0] || "Admin";
 
   return (
-    <header className="h-14 bg-[#AC1C09] text-white flex items-center justify-between px-4 sm:px-6 shadow">
-      <div className="font-semibold">BackOffice</div>
-
-
-      <div className="flex items-stretch border-l border-[#C93A25]">
-  
-        <div className="flex items-center gap-2 px-3">
-   
-          <div className="w-5 h-5 flex items-center justify-center">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M9 9C7.7625 9 6.70312 8.55937 5.82187 7.67812C4.94062 6.79688 4.5 5.7375 4.5 4.5C4.5 3.2625 4.94062 2.20312 5.82187 1.32187C6.70312 0.440625 7.7625 0 9 0C10.2375 0 11.2969 0.440625 12.1781 1.32187C13.0594 2.20312 13.5 3.2625 13.5 4.5C13.5 5.7375 13.0594 6.79688 12.1781 7.67812C11.2969 8.55937 10.2375 9 9 9ZM0 18V14.85C0 14.2125 0.164062 13.6266 0.492188 13.0922C0.820312 12.5578 1.25625 12.15 1.8 11.8687C2.9625 11.2875 4.14375 10.8516 5.34375 10.5609C6.54375 10.2703 7.7625 10.125 9 10.125C10.2375 10.125 11.4562 10.2703 12.6562 10.5609C13.8562 10.8516 15.0375 11.2875 16.2 11.8687C16.7437 12.15 17.1797 12.5578 17.5078 13.0922C17.8359 13.6266 18 14.2125 18 14.85V18H0ZM2.25 15.75H15.75V14.85C15.75 14.6437 15.6984 14.4562 15.5953 14.2875C15.4922 14.1187 15.3562 13.9875 15.1875 13.8937C14.175 13.3875 13.1531 13.0078 12.1219 12.7547C11.0906 12.5016 10.05 12.375 9 12.375C7.95 12.375 6.90937 12.5016 5.87812 12.7547C4.84687 13.0078 3.825 13.3875 2.8125 13.8937C2.64375 13.9875 2.50781 14.1187 2.40469 14.2875C2.30156 14.4562 2.25 14.6437 2.25 14.85V15.75ZM9 6.75C9.61875 6.75 10.1484 6.52969 10.5891 6.08906C11.0297 5.64844 11.25 5.11875 11.25 4.5C11.25 3.88125 11.0297 3.35156 10.5891 2.91094C10.1484 2.47031 9.61875 2.25 9 2.25C8.38125 2.25 7.85156 2.47031 7.41094 2.91094C6.97031 3.35156 6.75 3.88125 6.75 4.5C6.75 5.11875 6.97031 5.64844 7.41094 6.08906C7.85156 6.52969 8.38125 6.75 9 6.75Z"
-                fill="white"
-              />
-            </svg>
-          </div>
-          <span className="text-sm font-medium max-w-[160px] truncate">
-            {displayName}
-          </span>
-        </div>
-
-        {/* logout dugme */}
-        <button
-          onClick={doLogout}
-          className="flex items-center justify-center px-3 transition-colors"
-          title="Log out"
+    <>
+      {/* TOAST */}
+      {toast && (
+        <div
+          className={`
+            fixed bottom-4 right-4 z-50 rounded-md px-4 py-3 text-sm shadow-lg
+            ${toast.type === "error" ? "bg-red-600" : "bg-emerald-600"}
+            text-white
+          `}
         >
-          {/* mesto za SVG ikonicu log out strelice */}
-          <div className="w-5 h-5 flex items-center justify-center">
-        
-            <img src="/img/logout.png" alt="Logout" />
+          {toast.message}
+        </div>
+      )}
+
+      <header className="h-14 bg-[#AC1C09] text-white flex items-center justify-between px-4 sm:px-6 shadow">
+        <div className="font-semibold">BackOffice</div>
+
+        <div className="flex items-stretch border-l border-[#C93A25]">
+          {/* CLEAR CACHE button */}
+          <button
+            onClick={handleClearCache}
+            className="flex items-center justify-center px-3 border-r border-[#C93A25] text-sm hover:bg-[#C93A25] transition-colors disabled:opacity-60"
+            disabled={isClearing}
+          >
+            {isClearing ? "Clearing..." : "Clear cache"}
+          </button>
+
+          <div className="flex items-center gap-2 px-3">
+            <span className="text-sm font-medium max-w-[160px] truncate">
+              {displayName}
+            </span>
           </div>
-        </button>
-      </div>
-    </header>
+
+          <button
+            onClick={doLogout}
+            className="flex items-center justify-center px-3 transition-colors"
+            title="Log out"
+          >
+            <div className="w-5 h-5 flex items-center justify-center">
+              <img src="/img/logout.png" alt="Logout" />
+            </div>
+          </button>
+        </div>
+      </header>
+    </>
   );
 }

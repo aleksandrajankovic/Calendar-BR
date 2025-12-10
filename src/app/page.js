@@ -7,7 +7,7 @@ import LangSwitcher from "@/components/LangSwitcher";
 import SnowOverlay from "@/components/SnowOverlay";
 import { unstable_cache } from "next/cache";
 
-export const dynamic = "force-dynamic"; // uvek dynamic render, ali i dalje imamo DB cache
+export const dynamic = "force-dynamic";
 
 // ----------------------------------------------------------------------
 // HELPERS
@@ -91,37 +91,45 @@ function getMonthLabel(year, month, lang) {
 }
 
 // ----------------------------------------------------------------------
-// CACHED DATA FETCHER – Neon upite keširamo 5 minuta po (year, month)
+// RAW DB FETCHER (bez cache-a)
+// ----------------------------------------------------------------------
+async function fetchCalendarData(year, month) {
+  console.log("DB QUERY EXECUTED:", year, month);
+
+  return Promise.all([
+    prisma.weeklyPromotion.findMany({ orderBy: { weekday: "asc" } }),
+    prisma.weeklyPlan.findMany({
+      where: { year, month },
+      orderBy: { weekday: "asc" },
+    }),
+    prisma.specialPromotion.findMany({
+      where: { year, month },
+      orderBy: [{ day: "asc" }],
+    }),
+    prisma.calendarSettings.findFirst(),
+  ]);
+}
+
+// ----------------------------------------------------------------------
+// CACHED DATA FETCHER
 // ----------------------------------------------------------------------
 const getCalendarDataCached = unstable_cache(
-  async (year, month) => {
-    console.log("DB QUERY EXECUTED (CACHE MISS):", year, month);
-
-    return Promise.all([
-      prisma.weeklyPromotion.findMany({ orderBy: { weekday: "asc" } }),
-      prisma.weeklyPlan.findMany({
-        where: { year, month },
-        orderBy: { weekday: "asc" },
-      }),
-      prisma.specialPromotion.findMany({
-        where: { year, month },
-        orderBy: [{ day: "asc" }],
-      }),
-      prisma.calendarSettings.findFirst(),
-    ]);
-  },
-  ["calendar-data"], // osnovni ključ; year/month ulaze kao argumenti
-  { revalidate: 300 } // 300 sekundi = 5 minuta
+  fetchCalendarData,
+  ["calendar-data"],
+  {
+    revalidate: 300, // 5 minuta
+    tags: ["calendar-calendar-data"], 
+  }
 );
 
 // ----------------------------------------------------------------------
 // PAGE COMPONENT
 // ----------------------------------------------------------------------
 export default async function Home({ searchParams }) {
-  // u Next 16 searchParams je Promise → moramo await
+
   const sp = await searchParams;
 
-  // isto važi i za cookies()
+
   const cookieStore = await cookies();
   const adminCookie = cookieStore.get("admin_auth");
   const isAdmin = !!adminCookie?.value;
@@ -144,7 +152,6 @@ export default async function Home({ searchParams }) {
       ? reqMonth
       : now.getMonth();
 
-  // koristimo keširani fetcher
   const [weeklyDefaults, weeklyPlanRows, specialRows, calendarSettings] =
     await getCalendarDataCached(year, month);
 
@@ -178,11 +185,13 @@ export default async function Home({ searchParams }) {
     <>
       {/* HEADER */}
       <header className="w-full bg-[linear-gradient(90deg,#A6080E_0%,#D11101_100%)] px-4 md:px-8 py-2 flex items-center justify-between">
-        <img
-          src="./img/logo.svg"
-          alt="Meridianbet"
-          className="h-6 md:h-7 w-auto"
-        />
+        <a href="https://meridianbet.rs">
+          <img
+            src="./img/logo.svg"
+            alt="Meridianbet"
+            className="h-6 md:h-7 w-auto"
+          />
+        </a>
         <div className="flex items-center gap-2">
           <LangSwitcher
             year={year}
@@ -206,8 +215,8 @@ export default async function Home({ searchParams }) {
         "
         style={{ backgroundImage: `url("${bgImageUrl}")` }}
       >
-        {/* Ako hoćeš sneg, samo otkomentariši: */}
-        {/* <SnowOverlay /> */}
+
+        <SnowOverlay /> 
 
         <div
           className="
