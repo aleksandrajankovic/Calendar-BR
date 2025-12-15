@@ -229,7 +229,7 @@ export default async function Home({ searchParams }) {
           "
         >
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white md:text-left text-center">
-            {lang === "pt" ? "Calendário de Promoções1" : "Promotion Calendar"}
+            {lang === "pt" ? "Calendário de Promoções" : "Promotion Calendar"}
           </h1>
 
           {isAdmin && (
