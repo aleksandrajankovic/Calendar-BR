@@ -9,9 +9,7 @@ import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
-// ----------------------------------------------------------------------
 // HELPERS
-// ----------------------------------------------------------------------
 function prevYM(y, m) {
   return m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 };
 }
@@ -90,9 +88,7 @@ function getMonthLabel(year, month, lang) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-// ----------------------------------------------------------------------
 // RAW DB FETCHER (bez cache-a)
-// ----------------------------------------------------------------------
 async function fetchCalendarData(year, month) {
   console.log("DB QUERY EXECUTED:", year, month);
 
@@ -102,7 +98,6 @@ async function fetchCalendarData(year, month) {
       where: { year, month },
       orderBy: { weekday: "asc" },
     }),
-    // ✅ SAMO AKTIVNE special promo za dati mesec
     prisma.specialPromotion.findMany({
       where: { year, month, active: true },
       orderBy: [{ day: "asc" }],
@@ -111,17 +106,15 @@ async function fetchCalendarData(year, month) {
   ]);
 }
 
-// ----------------------------------------------------------------------
 // CACHED DATA FETCHER
-// ----------------------------------------------------------------------
 const getCalendarDataCached = unstable_cache(fetchCalendarData, ["calendar-data"], {
   revalidate: 300,
   tags: ["calendar-calendar-data"],
 });
 
-// ----------------------------------------------------------------------
-// PROMO EXISTENCE CHECK (✅ samo active)
-// ----------------------------------------------------------------------
+
+// PROMO EXISTENCE CHECK 
+
 async function hasAnyActiveSpecialPromos(prismaClient) {
   const one = await prismaClient.specialPromotion.findFirst({
     where: { active: true },
@@ -130,9 +123,9 @@ async function hasAnyActiveSpecialPromos(prismaClient) {
   return !!one;
 }
 
-// ----------------------------------------------------------------------
+
 // PAGE COMPONENT
-// ----------------------------------------------------------------------
+
 export default async function Home({ searchParams }) {
   const sp = await searchParams;
 
@@ -152,18 +145,17 @@ export default async function Home({ searchParams }) {
   const reqYear = Number.parseInt(yRaw ?? "", 10);
   const reqMonth = Number.parseInt(mRaw ?? "", 10);
 
-  // let jer možemo da prepišemo u slučaju "nema promo"
+
   let year = Number.isInteger(reqYear) ? reqYear : now.getFullYear();
   let month =
     Number.isInteger(reqMonth) && reqMonth >= 0 && reqMonth <= 11
       ? reqMonth
       : now.getMonth();
 
-  // ✅ ima li uopšte aktivnih promo u bazi?
+ 
   const hasPromo = await hasAnyActiveSpecialPromos(prisma);
   const showNav = hasPromo;
 
-  // ✅ ako nema promo: uvek pokaži aktuelni mesec i ignoriši URL parametre
   if (!hasPromo) {
     year = now.getFullYear();
     month = now.getMonth();
@@ -231,7 +223,7 @@ export default async function Home({ searchParams }) {
         "
         style={{ backgroundImage: `url("${bgImageUrl}")` }}
       >
-        <SnowOverlay />
+        {/* <SnowOverlay /> */}
 
         <div
           className="
@@ -294,7 +286,7 @@ export default async function Home({ searchParams }) {
 
           <CalendarEnhancer adminPreview={isAdmin} lang={lang} />
 
-          {/* DESKTOP paginacija – samo ako ima promo */}
+          
           {showNav && (
             <div className="mt-6 md:flex items-center justify-center hidden">
               <div className="inline-flex items-center gap-4 rounded-full bg-black/40 px-4 py-2 text-white text-sm md:text-base">
