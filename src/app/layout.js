@@ -1,4 +1,4 @@
-import { Roboto, Roboto_Condensed} from "next/font/google";
+import { Roboto, Roboto_Condensed } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 
@@ -14,15 +14,15 @@ const robotoCondensed = Roboto_Condensed({
 });
 
 export const metadata = {
-  metadataBase: new URL("https://calendar.meridianbet.bet.br/"),
-  title: "Calendário de Promoções | Meridianbet",
+  metadataBase: new URL("https://calendario.meridianbet.bet.br/"),
+  title: "Calendário de Promoções | Meridianbet Brasil",
   description:
     "Fique por dentro das ofertas diárias, descubra novas promoções e aproveite recompensas exclusivas com o Calendário de Promoções da Meridianbet.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Calendário de Promoções | Meridianbet",
+    title: "Calendário de Promoções | Meridianbet Brasil",
     description:
       "Fique por dentro das ofertas diárias, descubra novas promoções e aproveite recompensas exclusivas com o Calendário de Promoções da Meridianbet.",
     url: "/",
@@ -40,7 +40,7 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Calendário de Promoções | Meridianbet",
+    title: "Calendário de Promoções | Meridianbet Brasil",
     description:
       "Fique por dentro das ofertas diárias, descubra novas promoções e aproveite recompensas exclusivas com o Calendário de Promoções da Meridianbet.",
     images: ["https://cloud.merbet.com/Preview-image/calendar-universal.png"],
@@ -50,19 +50,14 @@ export const metadata = {
     follow: true,
   },
   icons: {
-    icon: "/src/app/favicon.ico",
+    icon: "/favicon.ico",
   },
 };
 
-
-
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-        
-      <body
-        className={`${roboto.variable} ${robotoCondensed.variable} min-h-screen`}
-      >
+    <html lang="pt">
+      <body className={`${roboto.variable} ${robotoCondensed.variable} min-h-screen`}>
         {children}
         <Toaster
           position="top-right"

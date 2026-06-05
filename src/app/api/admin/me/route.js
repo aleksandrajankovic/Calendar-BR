@@ -2,34 +2,19 @@
 export const runtime = "nodejs";
 
 import prisma from "@/lib/db";
-
-function getAdminIdFromCookie(req) {
-  const cookieHeader = req.headers.get("cookie") || "";
-  const match = cookieHeader.match(/admin_auth=(\d+)/);
-  if (!match) return null;
-  return Number(match[1]);
-}
+import { getAdminFromRequest } from "@/lib/auth";
 
 export async function GET(req) {
   try {
-    const adminId = getAdminIdFromCookie(req);
-    if (!adminId) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+    const session = await getAdminFromRequest(req);
+    if (!session) return new Response("Unauthorized", { status: 401 });
 
     const admin = await prisma.adminUser.findUnique({
-      where: { id: adminId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isSuper: true,
-      },
+      where: { id: session.adminId },
+      select: { id: true, name: true, email: true, isSuper: true },
     });
 
-    if (!admin) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+    if (!admin) return new Response("Unauthorized", { status: 401 });
 
     return Response.json(admin);
   } catch (err) {

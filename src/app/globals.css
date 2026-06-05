@@ -38,7 +38,6 @@ body {
   padding: 0;
   min-height: 100%;
   background-color: #050e13; /* ista tamna kao sajt */
-  overscroll-behavior-y: none; /* sprečava “prelivanje” skrola na gore/dole */
 }
 .tiptap {
   :first-child {
@@ -182,6 +181,10 @@ button {
   padding: 24px;
   max-width: 640px;
   width: 90%;
+}
+
+#scratch-canvas {
+  cursor: url("/img/coin.png") 16 16, pointer;
 }
 
 /* Admin može da klikne future */

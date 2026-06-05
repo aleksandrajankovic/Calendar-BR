@@ -1,24 +1,22 @@
 // app/api/weekly/[weekday]/route.js
 export const runtime = "nodejs";
 import prisma from "@/lib/db";
+import { getAdminFromRequest } from "@/lib/auth";
+import { sanitizeRichHtml } from "@/lib/sanitize";
+import { sanitizeLink } from "@/lib/validate";
 
-const DEFAULT_LANG = "pt"; // ili šta ti već treba
-
-// helper: pročitaj ID admina iz cookie-ja
-function getAdminIdFromCookie(req) {
-  const cookieHeader = req.headers.get("cookie") || "";
-  const match = cookieHeader.match(/admin_auth=(\d+)/);
-  if (!match) return null;
-  return Number(match[1]);
-}
-
-// helper: dozvoli BILO KOG admina
-function requireAnyAdmin(req) {
-  const adminId = getAdminIdFromCookie(req);
-  if (!adminId) {
-    return { ok: false, status: 401 };
-  }
-  return { ok: true, adminId };
+function sanitizeTranslations(translations) {
+  if (!translations || typeof translations !== "object" || Array.isArray(translations)) return null;
+  return Object.fromEntries(
+    Object.entries(translations).map(([lang, value]) => [
+      lang,
+      {
+        ...(value && typeof value === "object" ? value : {}),
+        richHtml: sanitizeRichHtml(value?.richHtml ?? null),
+        link: sanitizeLink(value?.link ?? ""),
+      },
+    ])
+  );
 }
 
 function parseWeekdayParam(params) {
@@ -26,51 +24,32 @@ function parseWeekdayParam(params) {
   return Number.isInteger(n) && n >= 0 && n <= 6 ? n : null;
 }
 
-// PUT /api/weekly/:weekday  (upsert)
 export async function PUT(req, context) {
-  const { ok, status } = requireAnyAdmin(req);
-  if (!ok) return new Response("unauthorized", { status });
+  const session = await getAdminFromRequest(req);
+  if (!session) return new Response("unauthorized", { status: 401 });
 
   const params = await context.params;
   const weekday = parseWeekdayParam(params);
   if (weekday === null) return new Response("bad weekday", { status: 400 });
 
   const body = await req.json().catch(() => ({}));
-
-  const {
-    icon,
-    link,
-    buttonColor,
-    active,
-
-    title,
-    button,
-    rich,
-    richHtml,
-
-    translations: rawTranslations,
-    defaultLang,
-    category,
-  } = body;
+  const { icon, link, buttonColor, active, title, button, rich, richHtml, translations: rawTranslations, defaultLang, category } = body;
 
   const translations = rawTranslations || {};
-  const mainLang = defaultLang || DEFAULT_LANG;
+  const mainLang = defaultLang || "pt";
   const mainT = translations[mainLang] || {};
 
   const data = {
     weekday,
-
     title: mainT.title ?? title ?? "",
     button: mainT.button ?? button ?? "",
     rich: mainT.rich ?? rich ?? null,
-    richHtml: mainT.richHtml ?? richHtml ?? null,
-    link: mainT.link ?? link ?? "",
-
+    richHtml: sanitizeRichHtml(mainT.richHtml ?? richHtml ?? null),
+    link: sanitizeLink(mainT.link ?? link ?? ""),
     icon: icon ?? "",
     active: Boolean(active ?? true),
     buttonColor: buttonColor || "green",
-
-    translations: Object.keys(translations).length ? translations : null,
+    translations: sanitizeTranslations(translations),
     category: category || "ALL",
   };
 
@@ -83,10 +62,9 @@ export async function PUT(req, context) {
   return Response.json(row);
 }
 
-// PATCH /api/weekly/:weekday  { active: boolean }
 export async function PATCH(req, context) {
-  const { ok, status } = requireAnyAdmin(req);
-  if (!ok) return new Response("unauthorized", { status });
+  const session = await getAdminFromRequest(req);
+  if (!session) return new Response("unauthorized", { status: 401 });
 
   const params = await context.params;
   const weekday = parseWeekdayParam(params);
@@ -96,20 +74,16 @@ export async function PATCH(req, context) {
   const next = Boolean(body.active);
 
   try {
-    const row = await prisma.weeklyPromotion.update({
-      where: { weekday },
-      data: { active: next },
-    });
+    const row = await prisma.weeklyPromotion.update({ where: { weekday }, data: { active: next } });
     return Response.json(row);
   } catch {
     return new Response("not found", { status: 404 });
   }
 }
 
-// DELETE /api/weekly/:weekday
 export async function DELETE(req, context) {
-  const { ok, status } = requireAnyAdmin(req);
-  if (!ok) return new Response("unauthorized", { status });
+  const session = await getAdminFromRequest(req);
+  if (!session) return new Response("unauthorized", { status: 401 });
 
   const params = await context.params;
   const weekday = parseWeekdayParam(params);
@@ -117,8 +91,7 @@ export async function DELETE(req, context) {
 
   try {
     await prisma.weeklyPromotion.delete({ where: { weekday } });
-    return new Response(null, { status: 204 });
-  } catch {
-    return new Response(null, { status: 204 });
-  }
+  } catch {}
+
+  return new Response(null, { status: 204 });
 }

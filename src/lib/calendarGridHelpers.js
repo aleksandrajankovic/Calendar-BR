@@ -81,8 +81,8 @@ export function buildCalendarData({
     const isLocked = adminPreview ? false : (!promo || isFutureForUx);
 
     const category = promo?.category || "ALL";
+    const scratch = !!promo?.scratch;
 
-    // cell za grid (desktop)
     cells.push({
       type: "day",
       key: `day-${day}`,
@@ -95,12 +95,10 @@ export function buildCalendarData({
       category,
     });
 
-    // payload za JS (modal + mobile)
     const title = promo?.title || "";
     const richHtml = promo?.richHtml || null;
     const link = promo?.link || "#";
-    const button =
-      promo?.button || (lang === "pt" ? "Saiba mais" : "Learn more");
+    const button = promo?.button || (lang === "pt" ? "Saiba mais" : "Learn more");
     const buttonColor = promo?.buttonColor || "green";
 
     daysPayload.push({
@@ -115,8 +113,8 @@ export function buildCalendarData({
       button,
       buttonColor,
       category,
+      scratch,
 
-   
       hasPromo: Boolean(promo),
       isToday,
       isFutureForUx,
@@ -124,15 +122,7 @@ export function buildCalendarData({
       icon,
 
       promo: promo
-        ? {
-            title,
-            richHtml,
-            link,
-            button,
-            buttonColor,
-            category,
-            icon, 
-          }
+        ? { title, richHtml, link, button, buttonColor, category, icon, scratch }
         : null,
     });
   }

@@ -61,10 +61,10 @@ export default function SpecialEditor({ initial, onCancel, onSaved }) {
       icon: initial?.icon ?? "",
       active: initial?.active ?? true,
       buttonColor: initial?.buttonColor ?? "green",
+      scratch: !!initial?.scratch,
 
       translations: baseTranslations,
 
-      // NOVO: category
       category: initial?.category || "ALL",
     };
   }, [initial]);
@@ -153,6 +153,7 @@ export default function SpecialEditor({ initial, onCancel, onSaved }) {
         rich: mainT.rich || null,
         richHtml: mainT.richHtml || "",
         category: form.category || "ALL",
+        scratch: !!form.scratch,
       };
 
       const res = await fetch(url, {
@@ -480,6 +481,30 @@ export default function SpecialEditor({ initial, onCancel, onSaved }) {
               }}
             />
           </div>
+        </div>
+
+        {/* Scratch card toggle */}
+        <div className="mt-3 pt-3 border-t border-neutral-100">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <button
+              type="button"
+              onClick={() => set("scratch", !form.scratch)}
+              className={`h-5 w-5 rounded-sm border flex items-center justify-center transition ${
+                form.scratch
+                  ? "bg-[#17BB00] border-[#17BB00]"
+                  : "bg-white border-neutral-400"
+              }`}
+            >
+              {form.scratch && (
+                <svg width="13" height="10" viewBox="0 0 13 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.2667 1L4.20833 8.05833L1 4.85" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+            <span className="text-sm text-neutral-800">
+              Enable scratch card <span className="text-xs text-neutral-500">(user must scratch to reveal)</span>
+            </span>
+          </label>
         </div>
       </div>
     </>

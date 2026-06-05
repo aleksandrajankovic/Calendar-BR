@@ -3,40 +3,17 @@ export const runtime = "nodejs";
 
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/db";
+import { getAdminFromRequest } from "@/lib/auth";
 
-function getAdminIdFromCookie(req) {
-  const cookieHeader = req.headers.get("cookie") || "";
-  const match = cookieHeader.match(/admin_auth=(\d+)/);
-  if (!match) return null;
-  return Number(match[1]);
-}
-
-// GET /api/admin/users  -> lista svih admina (samo super admin)
 export async function GET(req) {
   try {
-    const currentAdminId = getAdminIdFromCookie(req);
-    if (!currentAdminId) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const currentAdmin = await prisma.adminUser.findUnique({
-      where: { id: currentAdminId },
-    });
-
-    if (!currentAdmin || !currentAdmin.isSuper) {
-      return new Response("Forbidden", { status: 403 });
-    }
+    const session = await getAdminFromRequest(req);
+    if (!session) return new Response("Unauthorized", { status: 401 });
+    if (!session.isSuper) return new Response("Forbidden", { status: 403 });
 
     const admins = await prisma.adminUser.findMany({
       orderBy: { id: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isSuper: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: { id: true, name: true, email: true, isSuper: true, createdAt: true, updatedAt: true },
     });
 
     return Response.json(admins);
@@ -46,21 +23,11 @@ export async function GET(req) {
   }
 }
 
-
 export async function POST(req) {
   try {
-    const currentAdminId = getAdminIdFromCookie(req);
-    if (!currentAdminId) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const currentAdmin = await prisma.adminUser.findUnique({
-      where: { id: currentAdminId },
-    });
-
-    if (!currentAdmin || !currentAdmin.isSuper) {
-      return new Response("Forbidden", { status: 403 });
-    }
+    const session = await getAdminFromRequest(req);
+    if (!session) return new Response("Unauthorized", { status: 401 });
+    if (!session.isSuper) return new Response("Forbidden", { status: 403 });
 
     const body = await req.json().catch(() => ({}));
     let { name, email, password, isSuper } = body;
@@ -70,33 +37,15 @@ export async function POST(req) {
     password = (password || "").trim();
     isSuper = Boolean(isSuper);
 
-    if (!name || !email || !password) {
-      return new Response("Missing fields", { status: 400 });
-    }
+    if (!name || !email || !password) return new Response("Missing fields", { status: 400 });
 
-    const existing = await prisma.adminUser.findUnique({
-      where: { email },
-    });
-    if (existing) {
-      return new Response("Email already in use", { status: 409 });
-    }
+    const existing = await prisma.adminUser.findUnique({ where: { email } });
+    if (existing) return new Response("Email already in use", { status: 409 });
 
     const passwordHash = await bcrypt.hash(password, 10);
-
     const newAdmin = await prisma.adminUser.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        isSuper,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isSuper: true,
-        createdAt: true,
-      },
+      data: { name, email, passwordHash, isSuper },
+      select: { id: true, name: true, email: true, isSuper: true, createdAt: true },
     });
 
     return Response.json(newAdmin, { status: 201 });

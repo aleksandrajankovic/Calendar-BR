@@ -1,33 +1,34 @@
-// lib/calendarInteractions.js
+// src/lib/calendarInteractions.js
+import { renderScratchModal } from "./scratch/renderScratchModal";
+import { initScratch } from "./scratch/initScratch";
 
 // -----------------------------
-// RENDER MODALA
+// NORMAL MODAL
 // -----------------------------
-function renderModalHTML(entry, lang = "pt") {
+function renderNormalModal(entry, lang = "pt") {
   if (!entry) {
     return lang === "pt"
       ? "<p>Sem promoções neste dia.</p>"
       : "<p>No promotions for this day.</p>";
   }
 
-  const { promo, day, type } = entry;
+  const { promo, type } = entry;
 
-  // koristimo top-level vrednosti, pa ako nema, padamo na promo.*
-  const title = entry.title || (promo && promo.title) || "";
-  const button = entry.button || (promo && promo.button) || "";
-  const buttonColor =
-    entry.buttonColor || (promo && promo.buttonColor) || "green";
-  const link = entry.link || (promo && promo.link) || "";
-  const richHtml = entry.richHtml || (promo && promo.richHtml) || "";
+  const title = entry.title || promo?.title || "";
+  const button = entry.button || promo?.button || "";
+  const buttonColor = entry.buttonColor || promo?.buttonColor || "green";
+  const link = entry.link || promo?.link || "";
+  const richHtml = entry.richHtml || promo?.richHtml || "";
 
-  // ako baš nemamo nikakav sadržaj
+  const defaultButtonLabel =
+    button || (lang === "pt" ? "Registrar-se" : "Register");
+
   if (!promo && !richHtml) {
     return lang === "pt"
       ? "<p>Sem promoções neste dia.</p>"
       : "<p>No promotions for this day.</p>";
   }
 
-  // --- izvlačenje prve <img> iz richHtml ---
   let imageHtml = null;
   let contentHtml = richHtml;
 
@@ -39,80 +40,53 @@ function renderModalHTML(entry, lang = "pt") {
     }
   }
 
-  // --- kategorija (žuti label) ---
-  let categoryLabel;
-  if (type === "special") {
-    categoryLabel = lang === "pt" ? "Promoção especial" : "Special promotion";
-  } else {
-    categoryLabel = lang === "pt" ? "Promoção semanal" : "Weekly promotion";
-  }
+  const categoryLabel =
+    type === "special"
+      ? lang === "pt" ? "Promoção especial" : "Special promotion"
+      : lang === "pt" ? "Promoção semanal" : "Weekly promotion";
 
-  // --- button ---
   const openUrl = link && String(link);
   const canOpen = openUrl && openUrl !== "#";
-
   const isYellow = buttonColor === "yellow";
 
-  const defaultButtonLabel =
-    button || (lang === "pt" ? "Registrar-se" : "Register");
-
-  // --- HTML struktura: slika → title → žuti label → opis → dugme ---
   return `
     <div class="flex flex-col w-full max-w-[420px] mx-auto">
-      ${
-        imageHtml
-          ? `
-        <div class="mb-4 [&_img]:w-full [&_img]:h-auto [&_img]:rounded-2xl">
-          ${imageHtml}
-        </div>`
-          : ""
-      }
+      ${imageHtml ? `<div class="mb-4 [&_img]:w-full [&_img]:h-auto [&_img]:rounded-2xl">${imageHtml}</div>` : ""}
 
       <h2 class="font-bold text-[24px] md:text-[28px] leading-tight mb-2 text-center text-white">
         ${title}
       </h2>
 
+      <div class="text-[11px] uppercase tracking-[0.12em] text-[#FACC01] mb-3 text-center">
+        ${categoryLabel}
+      </div>
 
       ${
         contentHtml
-          ? `
-        <div class="
-          text-sm leading-relaxed text-white/90
-          [&_p]:mb-2 [&_p:last-child]:mb-0
-          [&_strong]:font-semibold
-          [&_ul]:list-disc [&_ul]:pl-5
-        ">
-          ${contentHtml}
-        </div>`
+          ? `<div class="text-sm leading-relaxed text-white/90
+              [&_strong]:font-semibold [&_em]:italic [&_u]:underline
+              [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
+              [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
+              [&_li]:mb-0.5
+              [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-1 [&_h1]:mt-2
+              [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mb-1 [&_h2]:mt-2
+              [&_h3]:text-base [&_h3]:font-bold [&_h3]:mb-1 [&_h3]:mt-2
+            ">${contentHtml}</div>`
           : ""
       }
 
       ${
         canOpen
-          ? `
-        <div class="pt-5 mt-2 flex justify-center">
-          <a
-            href="${openUrl}"
-            target="_blank"
-            rel="noreferrer"
-            class="
-              w-4/5 max-w-[360px]
-              inline-flex items-center justify-center
-              px-4 py-3
-              rounded-[10px]
-              text-sm font-semibold font-condensed
-              shadow-[0_10px_25px_rgba(0,0,0,0.6)]
-              transition
-              ${
-                isYellow
-                  ? "bg-[#FACC01] text-black hover:brightness-110"
-                  : "bg-[#17BB00] text-white hover:brightness-110"
-              }
-            "
-          >
-            ${defaultButtonLabel}
-          </a>
-        </div>`
+          ? `<div class="pt-5 mt-2 flex justify-center">
+              <a href="${openUrl}" target="_blank" rel="noreferrer"
+                 class="w-4/5 max-w-[360px] inline-flex items-center justify-center
+                        px-4 py-3 rounded-[10px] text-sm font-semibold font-condensed
+                        shadow-[0_10px_25px_rgba(0,0,0,0.6)] transition
+                        ${isYellow ? "bg-[#FACC01] text-black" : "bg-[#17BB00] text-white"}
+                        hover:brightness-110">
+                ${defaultButtonLabel}
+              </a>
+            </div>`
           : ""
       }
     </div>
@@ -120,7 +94,51 @@ function renderModalHTML(entry, lang = "pt") {
 }
 
 // -----------------------------
-// INIT FUNKCIJA
+// MAIN RENDER
+// -----------------------------
+function renderModalHTML(entry, lang = "pt", theme = "default") {
+  if (!entry) {
+    return lang === "pt"
+      ? "<p>Sem promoções neste dia.</p>"
+      : "<p>No promotions for this day.</p>";
+  }
+
+  const { promo, type } = entry;
+
+  const title = entry.title || promo?.title || "";
+  const button = entry.button || promo?.button || "";
+  const buttonColor = entry.buttonColor || promo?.buttonColor || "green";
+  const link = entry.link || promo?.link || "";
+
+  const defaultButtonLabel =
+    button || (lang === "pt" ? "Registrar-se" : "Register");
+
+  const isScratch = !!(entry?.scratch || promo?.scratch);
+
+  if (isScratch) {
+    const shareKey =
+      entry?.shareUrl ||
+      `${entry?.year}-${entry?.month}-${entry?.day}-${type || "promo"}`;
+
+    return renderScratchModal({
+      title,
+      richHtml: entry.richHtml || promo?.richHtml || "",
+      link,
+      button: defaultButtonLabel,
+      buttonColor,
+      type,
+      lang,
+      shareKey,
+      threshold: 0.7,
+      theme,
+    });
+  }
+
+  return renderNormalModal(entry, lang);
+}
+
+// -----------------------------
+// INIT
 // -----------------------------
 export function initCalendarInteractions(rootSelector = "#calendar-root") {
   const root = document.querySelector(rootSelector);
@@ -132,6 +150,7 @@ export function initCalendarInteractions(rootSelector = "#calendar-root") {
   const payload = JSON.parse(dataEl.textContent || "{}");
   const days = Array.isArray(payload.days) ? payload.days : [];
   const lang = payload.lang || "pt";
+  const theme = payload.theme || "default";
 
   const modal = root.querySelector("#promo-modal");
   const content = root.querySelector("#promo-content");
@@ -145,12 +164,8 @@ export function initCalendarInteractions(rootSelector = "#calendar-root") {
 
   function animateOpen() {
     if (!dialog) return;
-
-    // reset na zatvoreno stanje
     dialog.classList.remove("opacity-100", "translate-y-0", "scale-100");
     dialog.classList.add("opacity-0", "translate-y-4", "scale-95");
-
-    // sledeći frame → otvoreno stanje
     requestAnimationFrame(() => {
       dialog.classList.remove("opacity-0", "translate-y-4", "scale-95");
       dialog.classList.add("opacity-100", "translate-y-0", "scale-100");
@@ -158,87 +173,69 @@ export function initCalendarInteractions(rootSelector = "#calendar-root") {
   }
 
   function animateClose(cb) {
-    if (!dialog) {
-      cb?.();
-      return;
-    }
-
+    if (!dialog) return cb?.();
     dialog.classList.remove("opacity-100", "translate-y-0", "scale-100");
     dialog.classList.add("opacity-0", "translate-y-4", "scale-95");
-
-    // duration mora da se poklopi sa Tailwind `duration-200`
-    setTimeout(() => {
-      cb?.();
-    }, 200);
+    setTimeout(() => cb?.(), 200);
   }
 
   function openModal(entry) {
-    content.innerHTML = renderModalHTML(entry, lang);
-
+    content.innerHTML = renderModalHTML(entry, lang, theme);
     modal.classList.remove("hidden");
     document.body.style.overflow = "hidden";
     isOpen = true;
-
     previousUrl = window.location.href;
 
-    if (entry && entry.shareUrl) {
+    if (entry?.shareUrl) {
       history.pushState({ promo: true }, "", entry.shareUrl);
     }
 
     animateOpen();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const canvas = document.getElementById("scratch-canvas");
+        if (canvas) initScratch();
+      });
+    });
   }
 
   function closeModal({ fromPopstate = false } = {}) {
     isOpen = false;
     document.body.style.overflow = "";
-
     animateClose(() => {
       modal.classList.add("hidden");
-
+      content.innerHTML = "";
       if (!fromPopstate && previousUrl) {
         history.replaceState(null, "", previousUrl);
       }
     });
   }
 
-  // Klik na dan - otvori modal
   root.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-day-button]");
     if (!btn) return;
-
     const day = Number(btn.getAttribute("data-day"));
     const entry = days.find((d) => d.day === day);
-
     if (!entry) return;
-
     openModal(entry);
   });
 
-  // Zatvaranje – X dugme
   closeBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     closeModal();
   });
 
-  // Klik na overlay
   modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      closeModal();
-    }
+    if (e.target === modal) closeModal();
   });
 
-  // ESC
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen) {
-      closeModal();
-    }
+    if (e.key === "Escape" && isOpen) closeModal();
   });
 
-  // Back/forward u browseru
   window.addEventListener("popstate", () => {
-    if (isOpen) {
-      closeModal({ fromPopstate: true });
-    }
+    if (isOpen) closeModal({ fromPopstate: true });
   });
 }
 
